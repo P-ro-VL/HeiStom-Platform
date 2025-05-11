@@ -7,6 +7,7 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.net.URLEncoder;
+import java.nio.charset.StandardCharsets;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -16,7 +17,7 @@ public class GeocodingUtil {
 
     public static LatLng getLatLngFromAddress(String address) {
         try {
-            String encodedAddress = URLEncoder.encode(address, "UTF-8");
+            String encodedAddress = URLEncoder.encode(address, StandardCharsets.UTF_8);
             String urlString = NOMINATIM_URL + "?q=" + encodedAddress + "&format=json&limit=1";
 
             URL url = new URL(urlString);

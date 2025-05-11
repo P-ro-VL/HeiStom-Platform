@@ -25,15 +25,13 @@ public class LodgingModel {
 
     String address;
 
-    double pricePerDay;
+    double dayPrice;
 
-    double pricePerMonth;
+    double hourPrice;
 
     double area;
 
     String description;
-
-    int views;
 
     long uploadDate;
 

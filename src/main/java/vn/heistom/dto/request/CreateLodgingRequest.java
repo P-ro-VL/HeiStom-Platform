@@ -19,7 +19,7 @@ public class CreateLodgingRequest {
 
     double pricePerDay;
 
-    double pricePerMonth;
+    double pricePerHour;
 
     double area;
 

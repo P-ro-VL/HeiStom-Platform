@@ -4,23 +4,19 @@ import lombok.AllArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import vn.heistom.api.ApiCallException;
-import vn.heistom.datasource.LodgingAmenityDataSource;
-import vn.heistom.datasource.LodgingDataSource;
-import vn.heistom.datasource.LodgingImageDataSource;
-import vn.heistom.datasource.UserDataSource;
+import vn.heistom.datasource.*;
+import vn.heistom.dto.request.CreateBookingRequest;
 import vn.heistom.dto.request.CreateLodgingRequest;
+import vn.heistom.dto.request.SearchLodgingRequest;
 import vn.heistom.dto.response.LodgingResponse;
 import vn.heistom.dto.response.UserResponse;
-import vn.heistom.model.LodgingAmenityModel;
-import vn.heistom.model.LodgingImageModel;
-import vn.heistom.model.LodgingModel;
-import vn.heistom.model.UserModel;
+import vn.heistom.model.*;
 import vn.heistom.util.GeocodingUtil;
 import vn.heistom.util.LatLng;
 
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 @Service
@@ -31,6 +27,7 @@ public class LodgingRepository {
     final LodgingImageDataSource lodgingImageDataSource;
     final LodgingAmenityDataSource lodgingAmenityDataSource;
     private final UserDataSource userDataSource;
+    private final RoomDataSource roomDataSource;
 
     public LodgingResponse getLodging(UUID lodgingId) throws ApiCallException {
         Optional<LodgingModel> lodgingOpt = lodgingDataSource.findById(lodgingId);
@@ -55,11 +52,10 @@ public class LodgingRepository {
                 .id(lodgingModel.getId())
                 .name(lodgingModel.getName())
                 .address(lodgingModel.getAddress())
-                .pricePerDay(lodgingModel.getPricePerDay())
-                .pricePerMonth(lodgingModel.getPricePerMonth())
+                .pricePerDay(lodgingModel.getDayPrice())
+                .pricePerHour(lodgingModel.getHourPrice())
                 .area(lodgingModel.getArea())
                 .description(lodgingModel.getDescription())
-                .views(lodgingModel.getViews())
                 .uploadDate(lodgingModel.getUploadDate())
                 .lat(lodgingModel.getLat())
                 .lng(lodgingModel.getLng())
@@ -88,11 +84,10 @@ public class LodgingRepository {
                 .id(UUID.randomUUID())
                 .name(request.getName())
                 .address(request.getAddress())
-                .pricePerDay(request.getPricePerDay())
-                .pricePerMonth(request.getPricePerMonth())
+                .hourPrice(request.getPricePerHour())
+                .dayPrice(request.getPricePerDay())
                 .area(request.getArea())
                 .description(request.getDescription())
-                .views(request.getViews())
                 .uploadDate(System.currentTimeMillis())
                 .lat(latLng.getLatitude())
                 .lng(latLng.getLongitude())
@@ -121,4 +116,110 @@ public class LodgingRepository {
         return getLodging(lodgingModel.getId());
     }
 
+    public List<LodgingResponse> search(SearchLodgingRequest request) {
+        List<LodgingModel> allLodgings = lodgingDataSource.findAll();
+
+        List<Predicate<LodgingModel>> predicates = new ArrayList<>();
+
+        if(request.getAddress() != null) {
+            predicates.add(lodgingModel -> lodgingModel.getAddress().toLowerCase().contains(
+                    request.getAddress().toLowerCase()
+            ));
+        }
+
+        if(request.getCheckIn() != 0L) {
+            predicates.add(lodgingModel -> {
+               List<RoomModel> rooms = roomDataSource.findAllByLodgingId(lodgingModel.getId());
+               return rooms.stream().anyMatch(
+                       room -> room.getCheckOutAt() <= request.getCheckIn() || room.getCheckInAt() == 0L
+               );
+            });
+        }
+
+        if(request.getCheckOut() != 0L) {
+            predicates.add(lodgingModel -> {
+                List<RoomModel> rooms = roomDataSource.findAllByLodgingId(lodgingModel.getId());
+                return rooms.stream().anyMatch(
+                        room -> room.getCheckInAt() >= request.getCheckOut() || room.getCheckInAt() == 0L
+
+                );
+            });
+        }
+
+        if(request.getNumOfPeople() != 0) {
+            predicates.add(lodgingModel -> {
+                List<RoomModel> rooms = roomDataSource.findAllByLodgingId(lodgingModel.getId());
+                if(rooms.size() == 1) {
+                    return rooms.get(0).getCapacity() >= request.getNumOfPeople();
+                }
+                return rooms.stream()
+                        .filter(room -> room.getStatus().equals("AVAILABLE"))
+                        .map(RoomModel::getCapacity)
+                        .reduce(Integer::sum)
+                        .orElse(0) >= request.getNumOfPeople();
+            });
+        }
+
+        if(request.getNumOfRoom() != 0) {
+            predicates.add(lodgingModel -> {
+                List<RoomModel> rooms = roomDataSource.findAllByLodgingId(lodgingModel.getId());
+                return rooms.stream()
+                        .filter(room -> room.getStatus().equals("AVAILABLE"))
+                        .count() >= request.getNumOfRoom();
+            });
+        }
+
+        return allLodgings.stream()
+                .filter(lodgingModel -> {
+                    AtomicInteger count = new AtomicInteger();
+                    predicates.forEach(predicate -> {
+                        if(predicate.test(lodgingModel))
+                            count.addAndGet(1);
+                    });
+                    return count.get() == predicates.size();
+                })
+                .map(lodgingModel -> {
+                    try {
+                        return getLodging(lodgingModel.getId());
+                    } catch (ApiCallException e) {
+                        throw new RuntimeException(e);
+                    }
+                }).collect(Collectors.toList());
+    }
+
+    public List<RoomModel> book(CreateBookingRequest request) throws ApiCallException {
+        Optional<LodgingModel> lodgingModelOpt = lodgingDataSource.findById(request.getLodgingId());
+        if(lodgingModelOpt.isEmpty()) {
+            throw new ApiCallException("Cannot find any lodging with id '" + request.getLodgingId() + "'", HttpStatus.NOT_FOUND);
+        }
+
+        LodgingModel lodgingModel = lodgingModelOpt.get();
+        List<RoomModel> rooms = roomDataSource.findAllByLodgingId(lodgingModel.getId());
+
+        if(request.getCriteria().getCheckIn() != 0L) {
+            rooms = rooms.stream()
+                    .filter(room -> room.getCheckOutAt() <= request.getCriteria().getCheckIn() || room.getCheckInAt() == 0)
+                    .toList();
+        }
+
+        if(request.getCriteria().getCheckOut() != 0L) {
+            rooms = rooms.stream()
+                    .filter(
+                        room -> room.getCheckInAt() >= request.getCriteria().getCheckOut() || room.getCheckInAt() == 0L
+                    ).toList();
+        }
+
+        rooms = rooms.stream().sorted(Comparator.comparingInt(RoomModel::getCapacity)).toList();
+
+        List<RoomModel> result = new ArrayList<>();
+        int total = 0;
+        for(RoomModel roomModel : rooms) {
+            if(total < request.getCriteria().getNumOfPeople()) {
+                total += roomModel.getCapacity();
+                result.add(roomModel);
+            }
+        }
+
+        return result;
+    }
 }
