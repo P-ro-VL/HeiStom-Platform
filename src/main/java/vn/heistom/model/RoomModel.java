@@ -18,7 +18,7 @@ import java.util.UUID;
 public class RoomModel {
 
     @Id
-    String id;
+    UUID id;
 
     String status;
 
@@ -26,10 +26,8 @@ public class RoomModel {
 
     UUID lodgingId;
 
+    int roomName;
+
     int capacity;
-
-    long checkInAt;
-
-    long checkOutAt;
 
 }

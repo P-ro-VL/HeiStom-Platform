@@ -25,6 +25,8 @@ public class LodgingModel {
 
     String address;
 
+    int roomName;
+
     double dayPrice;
 
     double hourPrice;
@@ -40,5 +42,7 @@ public class LodgingModel {
     double lng;
 
     UUID ownerId;
+
+    String amenities;
 
 }

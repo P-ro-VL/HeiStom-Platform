@@ -1,8 +1,5 @@
-package vn.heistom.model;
+package vn.heistom.dto.response;
 
-import jakarta.persistence.Entity;
-import jakarta.persistence.Id;
-import jakarta.persistence.Table;
 import lombok.*;
 import lombok.experimental.FieldDefaults;
 
@@ -13,18 +10,13 @@ import java.util.UUID;
 @AllArgsConstructor
 @NoArgsConstructor
 @FieldDefaults(level = AccessLevel.PRIVATE)
-@Entity
-@Table(name = "bookings")
-public class BookingModel {
+public class BookingDetailResponse {
 
-    @Id
     UUID bookingId;
 
-    UUID lodgingId;
+    LodgingResponse lodging;
 
-    UUID userId;
-
-    UUID roomId;
+    UserResponse user;
 
     long checkInAt;
 

@@ -32,4 +32,6 @@ public class UserModel {
 
     String avatar;
 
+    String type;
+
 }

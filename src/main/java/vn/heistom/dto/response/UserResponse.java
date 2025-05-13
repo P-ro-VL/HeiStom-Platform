@@ -23,4 +23,6 @@ public class UserResponse {
 
     String avatar;
 
+    String type;
+
 }

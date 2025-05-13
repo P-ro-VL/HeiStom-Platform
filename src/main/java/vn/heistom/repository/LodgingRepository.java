@@ -8,6 +8,9 @@ import vn.heistom.datasource.*;
 import vn.heistom.dto.request.CreateBookingRequest;
 import vn.heistom.dto.request.CreateLodgingRequest;
 import vn.heistom.dto.request.SearchLodgingRequest;
+import vn.heistom.dto.request.StatisticsRequest;
+import vn.heistom.dto.response.BookingDetailResponse;
+import vn.heistom.dto.response.BookingLodgingResponse;
 import vn.heistom.dto.response.LodgingResponse;
 import vn.heistom.dto.response.UserResponse;
 import vn.heistom.model.*;
@@ -28,6 +31,9 @@ public class LodgingRepository {
     final LodgingAmenityDataSource lodgingAmenityDataSource;
     private final UserDataSource userDataSource;
     private final RoomDataSource roomDataSource;
+
+    final RoomRepository roomRepository;
+    private final BookingDataSource bookingDataSource;
 
     public LodgingResponse getLodging(UUID lodgingId) throws ApiCallException {
         Optional<LodgingModel> lodgingOpt = lodgingDataSource.findById(lodgingId);
@@ -131,7 +137,12 @@ public class LodgingRepository {
             predicates.add(lodgingModel -> {
                List<RoomModel> rooms = roomDataSource.findAllByLodgingId(lodgingModel.getId());
                return rooms.stream().anyMatch(
-                       room -> room.getCheckOutAt() <= request.getCheckIn() || room.getCheckInAt() == 0L
+                       room -> {
+                           Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
+                           if(bookings.isEmpty()) return false;
+                           BookingModel booking = bookings.get();
+                           return booking.getCheckOutAt() <= request.getCheckIn();
+                       }
                );
             });
         }
@@ -140,7 +151,12 @@ public class LodgingRepository {
             predicates.add(lodgingModel -> {
                 List<RoomModel> rooms = roomDataSource.findAllByLodgingId(lodgingModel.getId());
                 return rooms.stream().anyMatch(
-                        room -> room.getCheckInAt() >= request.getCheckOut() || room.getCheckInAt() == 0L
+                        room -> {
+                            Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
+                            if(bookings.isEmpty()) return false;
+                            BookingModel booking = bookings.get();
+                            return booking.getCheckInAt() >= request.getCheckOut();
+                        }
 
                 );
             });
@@ -198,14 +214,24 @@ public class LodgingRepository {
 
         if(request.getCriteria().getCheckIn() != 0L) {
             rooms = rooms.stream()
-                    .filter(room -> room.getCheckOutAt() <= request.getCriteria().getCheckIn() || room.getCheckInAt() == 0)
+                    .filter(room -> {
+                        Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
+                        if(bookings.isEmpty()) return false;
+                        BookingModel booking = bookings.get();
+                        return booking.getCheckOutAt() <= request.getCriteria().getCheckIn();
+                    })
                     .toList();
         }
 
         if(request.getCriteria().getCheckOut() != 0L) {
             rooms = rooms.stream()
                     .filter(
-                        room -> room.getCheckInAt() >= request.getCriteria().getCheckOut() || room.getCheckInAt() == 0L
+                            room -> {
+                                Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
+                                if(bookings.isEmpty()) return false;
+                                BookingModel booking = bookings.get();
+                                return booking.getCheckInAt() >= request.getCriteria().getCheckOut();
+                            }
                     ).toList();
         }
 
@@ -222,4 +248,72 @@ public class LodgingRepository {
 
         return result;
     }
+
+    public List<LodgingModel> getOwnerLodgings(UUID ownerId) {
+        return lodgingDataSource.findAllByOwnerId(ownerId);
+    }
+
+    public List<BookingLodgingResponse> getOwnerLodgingBookings(UUID ownerId) throws ApiCallException {
+        List<BookingLodgingResponse> result = new ArrayList<>();
+        List<LodgingModel> myLodgings = lodgingDataSource.findAllByOwnerId(ownerId);
+
+        for(LodgingModel lodgingModel : myLodgings) {
+            List<BookingModel> bookings = bookingDataSource.findAllByLodgingId(lodgingModel.getId());
+            LodgingResponse lodgingResponse = getLodging(lodgingModel.getId());
+            for(BookingModel booking : bookings) {
+                result.add(BookingLodgingResponse.builder()
+                                .lodging(lodgingResponse)
+                                .bookedAt(booking.getCheckInAt())
+                        .build());
+            }
+        }
+
+        return result;
+    }
+
+    public List<BookingLodgingResponse> getUserLodgingBookings(UUID userId) throws ApiCallException {
+        List<BookingLodgingResponse> result = new ArrayList<>();
+        List<BookingModel> bookings = bookingDataSource.findAllByUserId(userId);
+
+        for(BookingModel booking : bookings) {
+            result.add(BookingLodgingResponse.builder()
+                    .lodging(getLodging(booking.getLodgingId()))
+                    .bookedAt(booking.getCheckInAt())
+                    .build());
+        }
+
+        return result;
+    }
+
+    public BookingDetailResponse getBookingDetail(UUID bookingId) throws ApiCallException {
+        Optional<BookingModel> bookingOpt = bookingDataSource.findById(bookingId.toString());
+        if(bookingOpt.isEmpty()) {
+            throw new ApiCallException("Cannot find booking with id '" + bookingId + "'", HttpStatus.NOT_FOUND);
+        }
+        BookingModel booking = bookingOpt.get();
+        LodgingResponse lodgingResponse = getLodging(booking.getBookingId());
+        Optional<UserModel> userOpt = userDataSource.findByUuid(booking.getUserId());
+        if(userOpt.isEmpty()) throw new ApiCallException("Cannot find user with id '" + booking.getUserId() + "'", HttpStatus.NOT_FOUND);
+        UserModel user = userOpt.get();
+
+        return BookingDetailResponse.builder()
+                .bookingId(bookingId)
+                .user(
+                        UserResponse.builder()
+                                .uuid(user.getUuid())
+                                .name(user.getName())
+                                .address(user.getAddress())
+                                .email(user.getEmail())
+                                .avatar(user.getAvatar())
+                                .phoneNumber(user.getPhoneNumber())
+                                .build()
+                )
+                .isBankTransfer(booking.isBankTransfer())
+                .lodging(lodgingResponse)
+                .numOfRoom(booking.getNumOfRoom())
+                .checkInAt(booking.getCheckInAt())
+                .checkOutAt(booking.getCheckOutAt())
+                .build();
+    }
+
 }
