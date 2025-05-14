@@ -29,6 +29,7 @@ public class UserRepository {
                 .address(user.getAddress())
                 .avatar(user.getAvatar())
                 .phoneNumber(user.getPhoneNumber())
+                .type(user.getType())
                 .build();
     }
 
