@@ -10,6 +10,7 @@ import vn.heistom.dto.response.UserResponse;
 import vn.heistom.model.UserModel;
 
 import java.util.Optional;
+import java.util.UUID;
 
 @Service
 @AllArgsConstructor
@@ -33,4 +34,7 @@ public class UserRepository {
                 .build();
     }
 
+    public UserResponse update(UUID userId) {
+        return null;
+    }
 }

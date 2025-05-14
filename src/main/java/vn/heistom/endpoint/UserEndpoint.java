@@ -3,16 +3,15 @@ package vn.heistom.endpoint;
 import jakarta.servlet.http.HttpServletRequest;
 import lombok.AllArgsConstructor;
 import org.springframework.http.ResponseEntity;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 import vn.heistom.api.ApiCallResult;
 import vn.heistom.api.ApiExecutorService;
 import vn.heistom.api.ApiResponse;
 import vn.heistom.dto.request.AuthenticationRequest;
 import vn.heistom.dto.response.UserResponse;
 import vn.heistom.repository.UserRepository;
+
+import java.util.UUID;
 
 @RestController
 @AllArgsConstructor
@@ -26,6 +25,11 @@ public class UserEndpoint {
     @PostMapping(path = "/auth")
     public ResponseEntity<ApiResponse<UserResponse>> authEndpoint(@RequestBody AuthenticationRequest request, HttpServletRequest httpServletRequest) {
         return apiExecutorService.execute(httpServletRequest, () -> new ApiCallResult<>(userRepository.authenticate(request)));
+    }
+
+    @PutMapping(path = "/update")
+    public ResponseEntity<ApiResponse<UserResponse>> updateUserInfo(@RequestParam UUID userId, HttpServletRequest httpServletRequest) {
+        return apiExecutorService.execute(httpServletRequest, () -> new ApiCallResult<>(userRepository.update(userId)));
     }
 
 }

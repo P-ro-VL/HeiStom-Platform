@@ -239,7 +239,7 @@ public class LodgingRepository {
             rooms = rooms.stream()
                     .filter(room -> {
                         Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
-                        if(bookings.isEmpty()) return false;
+                        if(bookings.isEmpty()) return true;
                         BookingModel booking = bookings.get();
                         return booking.getCheckOutAt() <= request.getCriteria().getCheckIn();
                     })
@@ -251,7 +251,7 @@ public class LodgingRepository {
                     .filter(
                             room -> {
                                 Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
-                                if(bookings.isEmpty()) return false;
+                                if(bookings.isEmpty()) return true;
                                 BookingModel booking = bookings.get();
                                 return booking.getCheckInAt() >= request.getCriteria().getCheckOut();
                             }
@@ -350,7 +350,7 @@ public class LodgingRepository {
             throw new ApiCallException("Cannot find booking with id '" + bookingId + "'", HttpStatus.NOT_FOUND);
         }
         BookingModel booking = bookingOpt.get();
-        LodgingResponse lodgingResponse = getLodging(booking.getBookingId());
+        LodgingResponse lodgingResponse = getLodging(booking.getLodgingId());
         Optional<UserModel> userOpt = userDataSource.findByUuid(booking.getUserId());
         if(userOpt.isEmpty()) throw new ApiCallException("Cannot find user with id '" + booking.getUserId() + "'", HttpStatus.NOT_FOUND);
         UserModel user = userOpt.get();
