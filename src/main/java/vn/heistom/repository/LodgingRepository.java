@@ -144,7 +144,7 @@ public class LodgingRepository {
                return rooms.stream().anyMatch(
                        room -> {
                            Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
-                           if(bookings.isEmpty()) return false;
+                           if(bookings.isEmpty()) return true;
                            BookingModel booking = bookings.get();
                            return booking.getCheckOutAt() <= request.getCheckIn();
                        }
@@ -158,7 +158,7 @@ public class LodgingRepository {
                 return rooms.stream().anyMatch(
                         room -> {
                             Optional<BookingModel> bookings = roomRepository.findFirstEndBooking(room.getId());
-                            if(bookings.isEmpty()) return false;
+                            if(bookings.isEmpty()) return true;
                             BookingModel booking = bookings.get();
                             return booking.getCheckInAt() >= request.getCheckOut();
                         }
