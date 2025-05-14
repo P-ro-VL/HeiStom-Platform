@@ -42,4 +42,6 @@ public class LodgingResponse {
 
     UserResponse owner;
 
+    LodgingRatingResponse review;
+
 }

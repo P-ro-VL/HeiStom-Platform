@@ -35,6 +35,8 @@ public class LodgingRepository {
     final RoomRepository roomRepository;
     private final BookingDataSource bookingDataSource;
 
+    final RatingRepository ratingRepository;
+
     public LodgingResponse getLodging(UUID lodgingId) throws ApiCallException {
         Optional<LodgingModel> lodgingOpt = lodgingDataSource.findById(lodgingId);
         if(lodgingOpt.isEmpty()) throw new ApiCallException("Cannot find any lodging with id " + lodgingId, HttpStatus.NOT_FOUND);
@@ -76,6 +78,9 @@ public class LodgingRepository {
                                 .avatar(owner.getAvatar())
                                 .phoneNumber(owner.getPhoneNumber())
                                 .build()
+                )
+                .review(
+                        ratingRepository.getLodgingRatings(lodgingId)
                 )
                 .build();
     }
@@ -249,8 +254,16 @@ public class LodgingRepository {
         return result;
     }
 
-    public List<LodgingModel> getOwnerLodgings(UUID ownerId) {
-        return lodgingDataSource.findAllByOwnerId(ownerId);
+    public List<LodgingResponse> getOwnerLodgings(UUID ownerId) {
+        return lodgingDataSource.findAllByOwnerId(ownerId)
+                .stream().map(e -> {
+                    try {
+                        return getLodging(e.getId());
+                    } catch (ApiCallException ex) {
+                        throw new RuntimeException(ex);
+                    }
+                })
+                .toList();
     }
 
     public List<BookingLodgingResponse> getOwnerLodgingBookings(UUID ownerId) throws ApiCallException {

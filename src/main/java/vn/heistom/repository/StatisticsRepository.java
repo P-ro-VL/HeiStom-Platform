@@ -12,6 +12,7 @@ import java.time.*;
 import java.time.format.TextStyle;
 import java.time.temporal.WeekFields;
 import java.util.*;
+import java.util.stream.DoubleStream;
 
 @Service
 @RequiredArgsConstructor
@@ -20,7 +21,7 @@ public class StatisticsRepository {
     private final BookingDataSource bookingDataSource;
     private final LodgingDataSource lodgingDataSource;
 
-    public Map<String, Double> calculateRevenue(StatisticsRequest request) {
+    public Map<String, Object> calculateRevenue(StatisticsRequest request) {
         UUID lodgingId = request.getLodgingId();
         String type = request.getType().toUpperCase();
         long startDateMillis = request.getStartDate();
@@ -34,22 +35,23 @@ public class StatisticsRepository {
                 .atZone(ZoneId.systemDefault())
                 .toLocalDate();
 
-        Map<String, Double> result = new LinkedHashMap<>();
+        Map<String, Object> result = new LinkedHashMap<>();
 
         switch (type) {
             case "TOTAL" -> {
                 double total = bookings.stream()
                         .mapToDouble(booking -> calculateBookingRevenue(booking, dayPrice))
                         .sum();
-                result.put("value", total);
+                result.put("bookings", Double.valueOf(bookings.size() + ""));
+                result.put("revenue", total);
             }
 
             case "DAY" -> {
-                double dayRevenue = bookings.stream()
-                        .filter(booking -> isBookingCoversDate(booking, startDate))
-                        .mapToDouble(booking -> dayPrice * booking.getNumOfRoom())
-                        .sum();
-                result.put("value", dayRevenue);
+                List<BookingModel> dayRevenue = bookings.stream()
+                        .filter(booking -> isBookingCoversDate(booking, startDate)).toList();
+
+                result.put("bookings", Double.valueOf(dayRevenue.size() + ""));
+                result.put("value", dayRevenue.stream().mapToDouble(booking -> dayPrice * booking.getNumOfRoom()).sum());
             }
 
             case "WEEK" -> {
@@ -57,23 +59,31 @@ public class StatisticsRepository {
                 LocalDate weekStart = startDate.with(weekFields.dayOfWeek(), 1);
                 LocalDate weekEnd = startDate.with(weekFields.dayOfWeek(), 7);
 
-                // Initialize keys Mon to Sun with 0.0
+                Map<String, Double> dayRevenues = new HashMap<>();
+
                 for (int i = 0; i < 7; i++) {
                     LocalDate day = weekStart.plusDays(i);
                     String dayLabel = day.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
-                    result.put(dayLabel, 0.0);
+                    dayRevenues.put(dayLabel, 0.0);
                 }
+
+                int totalBookings = 0;
 
                 for (BookingModel booking : bookings) {
                     List<LocalDate> bookingDates = getBookingDatesInRange(booking);
+                    totalBookings += bookingDates.size();
                     for (LocalDate date : bookingDates) {
                         if (!date.isBefore(weekStart) && !date.isAfter(weekEnd)) {
                             String dayLabel = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
                             double revenue = booking.getNumOfRoom() * dayPrice;
-                            result.put(dayLabel, result.getOrDefault(dayLabel, 0.0) + revenue);
+                            dayRevenues.put(dayLabel, dayRevenues.getOrDefault(dayLabel, 0.0)  + revenue);
                         }
                     }
                 }
+
+
+                result.put("revenue", dayRevenues);
+                result.put("bookings", totalBookings);
             }
 
             default -> throw new IllegalArgumentException("Invalid type: " + type);

@@ -14,7 +14,6 @@ import vn.heistom.dto.request.StatisticsRequest;
 import vn.heistom.dto.response.BookingDetailResponse;
 import vn.heistom.dto.response.BookingLodgingResponse;
 import vn.heistom.dto.response.LodgingResponse;
-import vn.heistom.model.LodgingModel;
 import vn.heistom.model.RoomModel;
 import vn.heistom.repository.LodgingRepository;
 import vn.heistom.repository.StatisticsRepository;
@@ -53,7 +52,7 @@ public class LodgingEndpoint {
     }
 
     @GetMapping(path = "/my")
-    public ResponseEntity<ApiResponse<List<LodgingModel>>> getOwnerLodgings(@RequestParam UUID ownerId, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ApiResponse<List<LodgingResponse>>> getOwnerLodgings(@RequestParam UUID ownerId, HttpServletRequest httpServletRequest) {
         return apiExecutorService.execute(httpServletRequest, () -> new ApiCallResult<>(lodgingRepository.getOwnerLodgings(ownerId)));
     }
 
@@ -73,7 +72,7 @@ public class LodgingEndpoint {
     }
 
     @PostMapping(path = "/statistics")
-    public ResponseEntity<ApiResponse<Map<String, Double>>> getStatistics(@RequestBody StatisticsRequest request, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> getStatistics(@RequestBody StatisticsRequest request, HttpServletRequest httpServletRequest) {
         return apiExecutorService.execute(httpServletRequest, () -> new ApiCallResult<>(statisticsRepository.calculateRevenue(request)));
     }
 

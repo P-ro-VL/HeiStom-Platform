@@ -25,8 +25,6 @@ public class LodgingModel {
 
     String address;
 
-    int roomName;
-
     double dayPrice;
 
     double hourPrice;
