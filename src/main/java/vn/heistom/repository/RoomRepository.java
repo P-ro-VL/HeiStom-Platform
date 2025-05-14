@@ -80,6 +80,7 @@ public class RoomRepository {
                                             .phoneNumber(user.getPhoneNumber())
                                             .name(user.getName())
                                             .build())
+                                    .booking(booking)
                             .build());
                 }
             }

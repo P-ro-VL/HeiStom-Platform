@@ -20,9 +20,9 @@ public class LodgingResponse {
 
     String address;
 
-    double pricePerDay;
+    double dayPrice;
 
-    double pricePerHour;
+    double hourPrice;
 
     double area;
 

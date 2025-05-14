@@ -47,7 +47,7 @@ public class LodgingEndpoint {
     }
 
     @PostMapping(path = "/book")
-    public ResponseEntity<ApiResponse<List<RoomModel>>> bookLodging(@RequestBody CreateBookingRequest request, HttpServletRequest httpServletRequest) {
+    public ResponseEntity<ApiResponse<Map<String, Object>>> bookLodging(@RequestBody CreateBookingRequest request, HttpServletRequest httpServletRequest) {
         return apiExecutorService.execute(httpServletRequest, () -> new ApiCallResult<>(lodgingRepository.book(request)));
     }
 

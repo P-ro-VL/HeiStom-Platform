@@ -73,11 +73,9 @@ public class StatisticsRepository {
                     List<LocalDate> bookingDates = getBookingDatesInRange(booking);
                     totalBookings += bookingDates.size();
                     for (LocalDate date : bookingDates) {
-                        if (!date.isBefore(weekStart) && !date.isAfter(weekEnd)) {
-                            String dayLabel = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
-                            double revenue = booking.getNumOfRoom() * dayPrice;
-                            dayRevenues.put(dayLabel, dayRevenues.getOrDefault(dayLabel, 0.0)  + revenue);
-                        }
+                        String dayLabel = date.getDayOfWeek().getDisplayName(TextStyle.SHORT, Locale.ENGLISH);
+                        double revenue = booking.getNumOfRoom() * dayPrice;
+                        dayRevenues.put(dayLabel, dayRevenues.getOrDefault(dayLabel, 0.0)  + revenue);
                     }
                 }
 
@@ -121,6 +119,5 @@ public class StatisticsRepository {
         long days = Math.max(1, (checkOut - checkIn) / (1000 * 60 * 60 * 24));
         return days * dayPrice * booking.getNumOfRoom();
     }
-
 
 }

@@ -6,10 +6,13 @@ import vn.heistom.model.BookingModel;
 import vn.heistom.model.RoomModel;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface BookingDataSource extends JpaRepository<BookingModel, String> {
+
+    Optional<BookingModel> findByBookingId(UUID bookingId);
 
     List<BookingModel> findAllByRoomId(UUID roomId);
 

@@ -14,6 +14,10 @@ public class CreateBookingRequest {
 
     UUID lodgingId;
 
+    UUID userId;
+
     SearchLodgingRequest criteria;
+
+    boolean isBankTransfer;
 
 }

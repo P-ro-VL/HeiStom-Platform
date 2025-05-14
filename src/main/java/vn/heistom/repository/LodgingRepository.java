@@ -5,10 +5,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import vn.heistom.api.ApiCallException;
 import vn.heistom.datasource.*;
-import vn.heistom.dto.request.CreateBookingRequest;
-import vn.heistom.dto.request.CreateLodgingRequest;
-import vn.heistom.dto.request.SearchLodgingRequest;
-import vn.heistom.dto.request.StatisticsRequest;
+import vn.heistom.dto.request.*;
 import vn.heistom.dto.response.BookingDetailResponse;
 import vn.heistom.dto.response.BookingLodgingResponse;
 import vn.heistom.dto.response.LodgingResponse;
@@ -50,7 +47,6 @@ public class LodgingRepository {
         if(amenitiesOpt.isEmpty()) throw new ApiCallException("Cannot find any amenities with lodging id " + lodgingId, HttpStatus.NOT_FOUND);
 
         List<LodgingImageModel> imageModels = imagesOpt.get();
-        List<LodgingAmenityModel> amenitiesModels = amenitiesOpt.get();
 
         Optional<UserModel> ownerOpt = userDataSource.findByUuid(lodgingModel.getOwnerId());
         if(ownerOpt.isEmpty()) throw new ApiCallException("Cannot find any user with id " + lodgingModel.getOwnerId(), HttpStatus.NOT_FOUND);
@@ -60,15 +56,15 @@ public class LodgingRepository {
                 .id(lodgingModel.getId())
                 .name(lodgingModel.getName())
                 .address(lodgingModel.getAddress())
-                .pricePerDay(lodgingModel.getDayPrice())
-                .pricePerHour(lodgingModel.getHourPrice())
+                .dayPrice(lodgingModel.getDayPrice())
+                .hourPrice(lodgingModel.getHourPrice())
                 .area(lodgingModel.getArea())
                 .description(lodgingModel.getDescription())
                 .uploadDate(lodgingModel.getUploadDate())
                 .lat(lodgingModel.getLat())
                 .lng(lodgingModel.getLng())
                 .images(imageModels.stream().map(LodgingImageModel::getUrl).collect(Collectors.toList()))
-                .amenities(amenitiesModels.stream().map(LodgingAmenityModel::getAmentity).collect(Collectors.toList()))
+                .amenities(lodgingModel.getAmenities() != null ? Arrays.asList(lodgingModel.getAmenities().toUpperCase().split(",")) : Arrays.asList())
                 .owner(
                         UserResponse.builder()
                                 .uuid(owner.getUuid())
@@ -89,20 +85,19 @@ public class LodgingRepository {
 
         LatLng latLng = GeocodingUtil.getLatLngFromAddress(request.getAddress());
 
-        if(latLng == null) throw new ApiCallException("Cannot parse address to lat and lng", HttpStatus.BAD_REQUEST);
-
         LodgingModel lodgingModel = LodgingModel.builder()
                 .id(UUID.randomUUID())
                 .name(request.getName())
                 .address(request.getAddress())
-                .hourPrice(request.getPricePerHour())
-                .dayPrice(request.getPricePerDay())
+                .hourPrice(request.getHourPrice())
+                .dayPrice(request.getDayPrice())
                 .area(request.getArea())
                 .description(request.getDescription())
                 .uploadDate(System.currentTimeMillis())
-                .lat(latLng.getLatitude())
-                .lng(latLng.getLongitude())
+                .lat(latLng != null ? latLng.getLatitude() : 0)
+                .lng(latLng != null ? latLng.getLongitude() : 0)
                 .ownerId(request.getOwnerId())
+                .amenities(String.join(",", request.getAmenities()))
                 .build();
         lodgingDataSource.save(lodgingModel);
 
@@ -123,6 +118,18 @@ public class LodgingRepository {
                     .build();
         }).toList();
         lodgingAmenityDataSource.saveAll(lodgingAmenityModels);
+
+        for(CreateRoomRequest createRoomRequest : request.getRooms()) {
+            RoomModel roomModel = RoomModel.builder()
+                    .id(UUID.randomUUID())
+                    .renter(null)
+                    .lodgingId(lodgingModel.getId())
+                    .status("AVAILABLE")
+                    .capacity(createRoomRequest.getCapacity())
+                    .roomName(createRoomRequest.getRoomName())
+                    .build();
+            roomDataSource.save(roomModel);
+        }
 
         return getLodging(lodgingModel.getId());
     }
@@ -190,6 +197,17 @@ public class LodgingRepository {
             });
         }
 
+        if(request.getAmenities() != null) {
+            predicates.add(lodgingModel -> {
+               boolean result;
+               for(String amenity : request.getAmenities()) {
+                   result = lodgingModel.getAmenities().toLowerCase().contains(amenity.toLowerCase());
+                   if(!result) return false;
+               }
+               return true;
+            });
+        }
+
         return allLodgings.stream()
                 .filter(lodgingModel -> {
                     AtomicInteger count = new AtomicInteger();
@@ -208,7 +226,7 @@ public class LodgingRepository {
                 }).collect(Collectors.toList());
     }
 
-    public List<RoomModel> book(CreateBookingRequest request) throws ApiCallException {
+    public Map<String, Object> book(CreateBookingRequest request) throws ApiCallException {
         Optional<LodgingModel> lodgingModelOpt = lodgingDataSource.findById(request.getLodgingId());
         if(lodgingModelOpt.isEmpty()) {
             throw new ApiCallException("Cannot find any lodging with id '" + request.getLodgingId() + "'", HttpStatus.NOT_FOUND);
@@ -251,7 +269,34 @@ public class LodgingRepository {
             }
         }
 
-        return result;
+        if(result.isEmpty()) {
+            throw new ApiCallException("Không có phòng trống", HttpStatus.BAD_REQUEST);
+        }
+
+        BookingModel bookingModel = BookingModel.builder()
+                .bookingId(UUID.randomUUID())
+                .lodgingId(request.getLodgingId())
+                .roomId(result.get(0).getId())
+                .checkInAt(request.getCriteria().getCheckIn())
+                .checkOutAt(request.getCriteria().getCheckOut())
+                .numOfRoom(result.size())
+                .isBankTransfer(request.isBankTransfer())
+                .userId(request.getUserId())
+                .build();
+        bookingDataSource.save(bookingModel);
+
+        return new HashMap<>() {
+            {
+                put("rooms", result);
+                put("bookingId", bookingModel.getBookingId());
+                put("lodgingId", bookingModel.getLodgingId());
+                put("checkInAt", bookingModel.getCheckInAt());
+                put("checkOutAt", bookingModel.getCheckOutAt());
+                put("numOfRoom", bookingModel.getNumOfRoom());
+                put("isBankTransfer", bookingModel.isBankTransfer());
+                put("userId", bookingModel.getUserId());
+            }
+        };
     }
 
     public List<LodgingResponse> getOwnerLodgings(UUID ownerId) {
@@ -275,6 +320,7 @@ public class LodgingRepository {
             LodgingResponse lodgingResponse = getLodging(lodgingModel.getId());
             for(BookingModel booking : bookings) {
                 result.add(BookingLodgingResponse.builder()
+                                .id(booking.getBookingId())
                                 .lodging(lodgingResponse)
                                 .bookedAt(booking.getCheckInAt())
                         .build());
@@ -299,7 +345,7 @@ public class LodgingRepository {
     }
 
     public BookingDetailResponse getBookingDetail(UUID bookingId) throws ApiCallException {
-        Optional<BookingModel> bookingOpt = bookingDataSource.findById(bookingId.toString());
+        Optional<BookingModel> bookingOpt = bookingDataSource.findByBookingId(bookingId);
         if(bookingOpt.isEmpty()) {
             throw new ApiCallException("Cannot find booking with id '" + bookingId + "'", HttpStatus.NOT_FOUND);
         }

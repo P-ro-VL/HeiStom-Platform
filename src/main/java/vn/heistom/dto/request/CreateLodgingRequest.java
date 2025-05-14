@@ -17,20 +17,20 @@ public class CreateLodgingRequest {
 
     String address;
 
-    double pricePerDay;
+    double dayPrice;
 
-    double pricePerHour;
+    double hourPrice;
 
     double area;
 
     String description;
-
-    int views;
 
     UUID ownerId;
 
     List<String> images;
 
     List<String> amenities;
+
+    List<CreateRoomRequest> rooms;
 
 }
