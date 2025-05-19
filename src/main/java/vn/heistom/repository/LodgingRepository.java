@@ -293,6 +293,7 @@ public class LodgingRepository {
                 put("checkInAt", bookingModel.getCheckInAt());
                 put("checkOutAt", bookingModel.getCheckOutAt());
                 put("numOfRoom", bookingModel.getNumOfRoom());
+                put("numOfPeople", request.getCriteria().getNumOfPeople());
                 put("isBankTransfer", bookingModel.isBankTransfer());
                 put("userId", bookingModel.getUserId());
             }
