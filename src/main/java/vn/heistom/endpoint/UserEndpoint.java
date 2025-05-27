@@ -8,6 +8,7 @@ import vn.heistom.api.ApiCallResult;
 import vn.heistom.api.ApiExecutorService;
 import vn.heistom.api.ApiResponse;
 import vn.heistom.dto.request.AuthenticationRequest;
+import vn.heistom.dto.request.UpdateUserRequest;
 import vn.heistom.dto.response.UserResponse;
 import vn.heistom.repository.UserRepository;
 
@@ -28,8 +29,8 @@ public class UserEndpoint {
     }
 
     @PutMapping(path = "/update")
-    public ResponseEntity<ApiResponse<UserResponse>> updateUserInfo(@RequestParam UUID userId, HttpServletRequest httpServletRequest) {
-        return apiExecutorService.execute(httpServletRequest, () -> new ApiCallResult<>(userRepository.update(userId)));
+    public ResponseEntity<ApiResponse<UserResponse>> updateUserInfo(@RequestParam UUID userId, @RequestBody UpdateUserRequest request, HttpServletRequest httpServletRequest) {
+        return apiExecutorService.execute(httpServletRequest, () -> new ApiCallResult<>(userRepository.update(userId, request)));
     }
 
 }

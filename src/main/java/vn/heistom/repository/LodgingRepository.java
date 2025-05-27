@@ -33,6 +33,7 @@ public class LodgingRepository {
     private final BookingDataSource bookingDataSource;
 
     final RatingRepository ratingRepository;
+    private final NotificationDataSource notificationDataSource;
 
     public LodgingResponse getLodging(UUID lodgingId) throws ApiCallException {
         Optional<LodgingModel> lodgingOpt = lodgingDataSource.findById(lodgingId);
@@ -284,6 +285,15 @@ public class LodgingRepository {
                 .userId(request.getUserId())
                 .build();
         bookingDataSource.save(bookingModel);
+
+        NotificationModel notificationModel = NotificationModel.builder()
+                .id(UUID.randomUUID())
+                .title(lodgingModel.getName() + " có đơn đặt phòng mới \uD83D\uDC49")
+                .content("Vui lòng kiểm tra đơn đặt phòng mới nhất để biết thêm chi tiết.")
+                .hasRead(false)
+                .receiverId(lodgingModel.getOwnerId())
+                .build();
+        notificationDataSource.save(notificationModel);
 
         return new HashMap<>() {
             {
